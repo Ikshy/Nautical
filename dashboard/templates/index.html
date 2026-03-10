@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAUTICAL — Port Intelligence</title>
+
+  
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+   
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+    <style>
+        /* ══ CSS Variables ══ */
+        :root {
+            --bg-deep:      #0a1628;
+            --bg-mid:       #0d2444;
+            --bg-card:      #112d54;
+            --cyan:         #00bcd4;
+            --green:        #00e676;
+            --yellow:       #ffea00;
+            --red:          #ff1744;
+            --text:         #e8f4fd;
+            --text-dim:     #90caf9;
+            --text-muted:   #546e7a;
+            --border:       rgba(0,188,212,0.2);
+            --font-mono:    'Courier New', monospace;
+        }
+
+        /* ══ Reset & Base ══ */
+        * { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            background: var(--bg-deep);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            /* সূক্ষ্ম গ্রিড ব্যাকগ্রাউন্ড / Subtle grid background */
+            background-image:
+                linear-gradient(rgba(0,188,212,.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,188,212,.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* ══ Header ══ */
+        header {
+            height: 56px;
+            background: linear-gradient(135deg, var(--bg-mid), #1565c0);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            position: relative;
+            z-index: 1000;
+        }
+
+        .brand {
+            font-family: var(--font-mono);
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--cyan);
+            letter-spacing: 4px;
+            text-shadow: 0 0 20px rgba(0,188,212,.5);
+        }
+
+        .brand-sub {
+            font-size: 10px;
+            color: var(--text-dim);
+            letter-spacing: 2px;
+            margin-top: 1px;
+        }
+
+        /* জীবন্ত সংকেত / Live signal badge */
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0,230,118,.1);
+            border: 1px solid var(--green);
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: 10px;
+            color: var(--green);
+            letter-spacing: 1px;
+        }
+
+        .live-dot {
+            width: 6px; height: 6px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            0%,100% { opacity:1; }
+            50%      { opacity:.2; }
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        select#weather {
+            background: var(--bg-card);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .btn-refresh {
+            background: var(--cyan);
+            color: var(--bg-deep);
+            border: none;
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-weight: 700;
+            font-size: 11px;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background .2s, transform .1s;
+        }
+
+        .btn-refresh:hover  { background: #00e5ff; }
+        .btn-refresh:active { transform: scale(.97); }
+
+        /* ══ Stats Strip ══ */
+        /* পরিসংখ্যানের সারি / Top statistics strip */
+        .stats-strip {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stat {
+            background: var(--bg-mid);
+            padding: 10px 14px;
+            border-right: 1px solid var(--border);
+        }
+
+        .stat:last-child { border-right: none; }
+
+        .stat-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--cyan);
+            line-height: 1;
+        }
+
+        .stat-sub {
+            font-size: 9px;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+       
+        .body-layout {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            height: calc(100vh - 56px - 52px); /* minus header & stats */
+        }
+
+        /* ══ Map ══ */
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ══ Right Panel ══ */
+        .panel {
+            background: var(--bg-mid);
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel::-webkit-scrollbar       { width: 3px; }
+        .panel::-webkit-scrollbar-thumb { background: var(--border); }
+
+        /* প্যানেল সেকশন / Panel section */
+        .section { border-bottom: 1px solid var(--border); }
+
+        .sec-head {
+            background: rgba(0,0,0,.25);
+            padding: 8px 14px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        /* ══ Congestion Block ══ */
+        .cong-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 14px;
+        }
+
+        /* বৃত্তাকার কনজেশন মিটার / Circular congestion meter */
+        .cong-ring {
+            width: 68px; height: 68px;
+            border-radius: 50%;
+            border: 3px solid var(--cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 16px;
+            font-weight: 700;
+            flex-shrink: 0;
+            color: var(--cyan);
+            box-shadow: 0 0 12px rgba(0,188,212,.3);
+            animation: spin-ring 4s linear infinite;
+        }
+
+        @keyframes spin-ring {
+            0%   { box-shadow: 0 0 12px rgba(0,188,212,.3); }
+            50%  { box-shadow: 0 0 20px rgba(0,188,212,.6); }
+            100% { box-shadow: 0 0 12px rgba(0,188,212,.3); }
+        }
+
+        .cong-info { flex:1; }
+
+        .cong-level {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--cyan);
+        }
+
+        .cong-detail {
+            font-size: 10px;
+            color: var(--text-dim);
+            margin-top: 3px;
+            line-height: 1.6;
+        }
+
+        /* ফোরকাস্ট চার্ট / Forecast chart */
+        .chart-wrap {
+            padding: 4px 14px 12px;
+            height: 140px;
+        }
+
+        /* ══ ETA Table ══ */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        th {
+            background: rgba(0,0,0,.3);
+            padding: 6px 10px;
+            text-align: left;
+            font-size: 8px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        td {
+            padding: 7px 10px;
+            border-bottom: 1px solid rgba(0,188,212,.05);
+            color: var(--text);
+        }
+
+        tr:hover td { background: rgba(0,188,212,.04); }
+
+        /* ছোট ব্যাজ / Small badge */
+        .badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 8px;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: .5px;
+        }
+
+        .b-green  { background:rgba(0,230,118,.15); color:var(--green);  border:1px solid rgba(0,230,118,.3); }
+        .b-yellow { background:rgba(255,234,0,.15);  color:var(--yellow); border:1px solid rgba(255,234,0,.3); }
+        .b-red    { background:rgba(255,23,68,.15);  color:var(--red);    border:1px solid rgba(255,23,68,.3); }
+        .b-cyan   { background:rgba(0,188,212,.15);  color:var(--cyan);   border:1px solid rgba(0,188,212,.3); }
+
+        /* ══ Optimization Cards ══ */
+        .opt-wrap { padding: 10px 14px; }
+
+        /* ফ্লিট সারসংক্ষেপ বাক্স / Fleet summary box */
+        .fleet-box {
+            background: rgba(0,230,118,.05);
+            border: 1px solid rgba(0,230,118,.2);
+            border-radius: 7px;
+            padding: 9px 11px;
+            margin-bottom: 10px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            font-size: 11px;
+        }
+
+        .fleet-box .fl { color: var(--text-dim); }
+        .fleet-box .fv { color: var(--green); font-weight: 600; }
+
+        /* প্রতিটি জাহাজের সুপারিশ কার্ড / Per-ship recommendation card */
+        .opt-card {
+            background: rgba(0,0,0,.2);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 10px;
+            margin-bottom: 7px;
+        }
+
+        .opt-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 7px;
+        }
+
+        .opt-name { font-weight: 700; font-size: 12px; }
+
+        .opt-action {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            letter-spacing: .5px;
+        }
+
+        .a-slow     { background:rgba(0,188,212,.2);  color:var(--cyan);  }
+        .a-maintain { background:rgba(0,230,118,.2);  color:var(--green); }
+
+        .opt-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3px;
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+
+        .opt-grid b { color: var(--green); }
+
+        /* টাইমস্ট্যাম্প / Timestamp footer */
+        #ts {
+            text-align: center;
+            font-size: 9px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            padding: 8px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ══ Loading screen ══ */
+        #loader {
+            position: fixed; inset: 0;
+            background: var(--bg-deep);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            z-index: 9999;
+            transition: opacity .6s;
+        }
+
+        #loader.gone { opacity:0; pointer-events:none; }
+
+        .loader-title {
+            font-family: var(--font-mono);
+            font-size: 32px;
+            letter-spacing: 8px;
+            color: var(--cyan);
+            text-shadow: 0 0 30px rgba(0,188,212,.6);
+        }
+
+        .loader-bar {
+            width: 260px; height: 2px;
+            background: rgba(0,188,212,.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .loader-fill {
+            height: 100%;
+            background: var(--cyan);
+            animation: fill 1.8s ease forwards;
+        }
+
+        @keyframes fill { from{width:0} to{width:100%} }
+
+        .loader-sub {
+            font-size: 11px;
+            color: var(--text-dim);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══ Loading Screen ══ -->
+<div id="loader">
+    <div class="loader-title">⚓ NAUTICAL</div>
+    <div class="loader-bar"><div class="loader-fill"></div></div>
+    <div class="loader-sub">Loading Port Intelligence...</div>
+</div>
+
+<!-- ══ Header ══ -->
+<header>
+    <div>
+        <div class="brand">⚓ NAUTICAL</div>
+        <div class="brand-sub">PORT OF COPENHAGEN — AI DIGITAL TWIN</div>
+    </div>
+    <div class="header-controls">
+        <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+        <select id="weather" onchange="setWeather(this.value)">
+            <option value="Calm">🌤 Calm</option>
+            <option value="Light Breeze">🌬 Light Breeze</option>
+            <option value="Moderate">💨 Moderate</option>
+            <option value="Rough">🌊 Rough</option>
+            <option value="Storm">⛈ Storm</option>
+        </select>
+        <button class="btn-refresh" onclick="manualRefresh()">↻ REFRESH</button>
+    </div>
+</header>
+
+<!-- ══ Stats Strip ══ -->
+<div class="stats-strip">
+    <div class="stat">
+        <div class="stat-label">Ships Tracked</div>
+        <div class="stat-value" id="s-ships">—</div>
+        <div class="stat-sub">approaching port</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">Congestion</div>
+        <div class="stat-value" id="s-cong">—</div>
+        <div class="stat-sub" id="s-cong-rate">— % occupied</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">Within 50 NM</div>
+        <div class="stat-value" id="s-near">—</div>
+        <div class="stat-sub">ships nearby</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">Avg Speed</div>
+        <div class="stat-value" id="s-speed">—</div>
+        <div class="stat-sub">knots</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">Cost Savings</div>
+        <div class="stat-value" id="s-save">—</div>
+        <div class="stat-sub">USD if optimized</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">CO₂ Saved</div>
+        <div class="stat-value" id="s-co2">—</div>
+        <div class="stat-sub">tons reduced</div>
+    </div>
+</div>
+
+<!-- ══ Body Layout ══ -->
+<div class="body-layout">
+
+    <!-- Leaflet Map / লিফলেট ম্যাপ -->
+    <div id="map"></div>
+
+    <!-- Right Panel / ডান প্যানেল -->
+    <div class="panel">
+
+        <!-- Congestion Status -->
+        <div class="section">
+            <div class="sec-head">📡 Port Congestion</div>
+            <div class="cong-row">
+                <div class="cong-ring" id="c-ring">—</div>
+                <div class="cong-info">
+                    <div class="cong-level"  id="c-level">Loading…</div>
+                    <div class="cong-detail" id="c-detail">Berths: —/—</div>
+                    <div class="cong-detail" id="c-avail">Available: —</div>
+                </div>
+            </div>
+            <!-- 24h Forecast Chart / ২৪ ঘণ্টার পূর্বাভাস চার্ট -->
+            <div class="chart-wrap">
+                <canvas id="forecastChart"></canvas>
+            </div>
+        </div>
+
+        <!-- ETA Predictions Table -->
+        <div class="section">
+            <div class="sec-head">🕐 ETA Predictions</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ship</th>
+                        <th>Type</th>
+                        <th>ETA h</th>
+                        <th>NM</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="eta-body"></tbody>
+            </table>
+        </div>
+
+        <!-- AI Optimization -->
+        <div class="section">
+            <div class="sec-head">⚡ AI Arrival Optimization</div>
+            <div class="opt-wrap" id="opt-wrap">
+                <div style="color:var(--text-muted);font-size:11px;">
+                    Loading recommendations…
+                </div>
+            </div>
+        </div>
+
+        <!-- Timestamp footer -->
+        <div id="ts">Last updated: —</div>
+
+    </div><!-- end panel -->
+</div><!-- end body-layout -->
+
+
+<script>
+
+
+const PORT_LAT = {{ port.lat }};
+const PORT_LON = {{ port.lon }};
+
+// কোপেনহেগেন কেন্দ্রিক ম্যাপ / Map centred on Copenhagen
+const map = L.map('map', { center:[PORT_LAT, PORT_LON], zoom:6 });
+
+// OpenStreetMap টাইলস / Tiles
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 18,
+}).addTo(map);
+
+// বন্দরের মার্কার / Port marker
+const portDot = L.divIcon({
+    html: `<div style="
+        width:14px; height:14px;
+        background:#00bcd4;
+        border-radius:50%;
+        border:3px solid #fff;
+        box-shadow:0 0 14px #00bcd4;">
+    </div>`,
+    className:'', iconAnchor:[7,7],
+});
+
+L.marker([PORT_LAT, PORT_LON], { icon: portDot })
+ .bindPopup('<b>⚓ Port of Copenhagen</b>')
+ .addTo(map);
+
+// দূরত্বের বৃত্ত / Range circles
+L.circle([PORT_LAT, PORT_LON], {
+    radius:92600, color:'#00bcd4',
+    fill:false, dashArray:'6', weight:1, opacity:.3
+}).addTo(map);   // ৫০ NM
+
+L.circle([PORT_LAT, PORT_LON], {
+    radius:277800, color:'#1565c0',
+    fill:false, dashArray:'3', weight:1, opacity:.2
+}).addTo(map);   // ১৫০ NM
+
+// জাহাজের মার্কার গ্রুপ / Ship markers group
+const shipLayer = L.layerGroup().addTo(map);
+
+// জাহাজের ধরন → রঙ / Ship type → icon color
+const TYPE_COLOR = {
+    'Cargo':'#4fc3f7',  'Tanker':'#ff8a65',
+    'Ferry':'#a5d6a7',  'Container':'#ce93d8',
+    'Bulk Carrier':'#ffe082', 'Cruise':'#ef9a9a',
+    'Unknown':'#78909c',
+};
+
+// জাহাজের আইকন তৈরি / Build ship icon (arrow shape pointing by heading)
+function shipIcon(type, heading) {
+    const c = TYPE_COLOR[type] || '#78909c';
+    return L.divIcon({
+        html:`<div style="
+            width:12px; height:18px;
+            background:${c};
+            clip-path:polygon(50% 0%,100% 100%,50% 75%,0% 100%);
+            transform:rotate(${heading}deg);
+            filter:drop-shadow(0 0 3px ${c});
+        "></div>`,
+        className:'',
+        iconAnchor:[6,9],
+        iconSize:[12,18],
+    });
+}
+
+
+// ══════════════════════════════════════════════
+// ফোরকাস্ট চার্ট / Forecast Chart (Chart.js)
+// ══════════════════════════════════════════════
+
+const fcCtx = document.getElementById('forecastChart').getContext('2d');
+const fcChart = new Chart(fcCtx, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [{
+            label: 'Occupancy %',
+            data: [],
+            borderColor: '#00bcd4',
+            backgroundColor: 'rgba(0,188,212,.08)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 2,
+            borderWidth: 2,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend:{ display:false } },
+        scales: {
+            x: {
+                ticks:{ color:'#546e7a', font:{size:8}, maxRotation:0 },
+                grid:{ color:'rgba(0,188,212,.05)' }
+            },
+            y: {
+                min:0, max:100,
+                ticks:{ color:'#546e7a', font:{size:8} },
+                grid:{ color:'rgba(0,188,212,.05)' }
+            }
+        }
+    }
+});
+
+
+// ══════════════════════════════════════════════
+// ডেটা ফেচ এবং UI আপডেট / Fetch & Update UI
+// ══════════════════════════════════════════════
+
+async function loadAll() {
+    try {
+        const res  = await fetch('/api/all');
+        const data = await res.json();
+
+        drawShips(data.ships);
+        updateStats(data.stats, data.fleet_summary);
+        updateCongestion(data.congestion, data.forecast);
+        updateETATable(data.eta_predictions);
+        updateOptCards(data.optimization, data.fleet_summary);
+        document.getElementById('ts').textContent =
+            'Last updated: ' + (data.last_updated || '—');
+
+    } catch(e) {
+        console.error('Fetch error:', e);
+    }
+}
+
+// ── ম্যাপে জাহাজ আঁকা / Draw ships on map ──
+function drawShips(geojson) {
+    if (!geojson || !geojson.features) return;
+    shipLayer.clearLayers();   // পুরনো মার্কার সরানো / Clear old markers
+
+    geojson.features.forEach(f => {
+        const p   = f.properties;
+        const [lon, lat] = f.geometry.coordinates;
+
+        L.marker([lat, lon], { icon: shipIcon(p.type, p.heading||0) })
+         .bindPopup(`
+            <b>🚢 ${p.name}</b><br>
+            <small>${p.type} | 🏳 ${p.flag}</small><br><hr>
+            Speed: <b>${p.speed} kn</b> | Heading: ${p.heading}°<br>
+            Distance: <b>${p.distance_nm} NM</b><br>
+            ETA: <b>${p.eta_hours}h</b> (${p.eta_datetime})<br>
+            ${p.origin} → ${p.destination}
+         `)
+         .addTo(shipLayer);
+    });
+}
+
+// ── পরিসংখ্যান বার আপডেট / Update stats strip ──
+function updateStats(stats, summary) {
+    if (stats) {
+        set('s-ships', stats.total_ships || '—');
+        set('s-near',  stats.ships_within_50nm || '—');
+        set('s-speed', (stats.avg_speed_knots || '—') + ' kn');
+    }
+    if (summary) {
+        const usd = summary.total_cost_saved_usd || 0;
+        set('s-save', usd ? '$' + (usd/1000).toFixed(0) + 'K' : '—');
+        set('s-co2',  (summary.total_co2_saved_tons || '—') + ' t');
+    }
+}
+
+// ── কনজেশন ব্লক আপডেট / Update congestion block ──
+function updateCongestion(cong, forecast) {
+    if (!cong) return;
+
+    const level = cong.level || 'LOW';
+    const rate  = cong.occupancy_rate || 0;
+    const clr   = { LOW:'#00e676', MEDIUM:'#ffea00', HIGH:'#ff1744' }[level] || '#00e676';
+
+    // বৃত্তাকার মিটার / Circular meter
+    const ring = document.getElementById('c-ring');
+    ring.textContent          = rate + '%';
+    ring.style.color          = clr;
+    ring.style.borderColor    = clr;
+    ring.style.boxShadow      = `0 0 14px ${clr}55`;
+
+    document.getElementById('c-level').textContent  = level + ' CONGESTION';
+    document.getElementById('c-level').style.color  = clr;
+    document.getElementById('c-detail').textContent =
+        `Berths: ${cong.occupied_berths}/${cong.total_berths} occupied`;
+    document.getElementById('c-avail').textContent  =
+        `Available: ${cong.available_berths} berths`;
+
+    // স্ট্যাটস স্ট্রিপে / In stats strip
+    set('s-cong',      level, clr);
+    set('s-cong-rate', rate + '% occupied');
+
+    // ফোরকাস্ট চার্ট আপডেট / Update forecast chart
+    if (forecast && forecast.length) {
+        const dotColors = forecast.map(f =>
+            ({ LOW:'#00e676', MEDIUM:'#ffea00', HIGH:'#ff1744' }[f.congestion_level])
+        );
+        fcChart.data.labels                            = forecast.map(f => f.time);
+        fcChart.data.datasets[0].data                  = forecast.map(f => f.occupancy_rate);
+        fcChart.data.datasets[0].pointBackgroundColor  = dotColors;
+        fcChart.update();
+    }
+}
+
+// ── ETA টেবিল আপডেট / Update ETA table ──
+function updateETATable(preds) {
+    if (!preds) return;
+    const tbody = document.getElementById('eta-body');
+    tbody.innerHTML = '';
+
+    preds.slice(0, 15).forEach(p => {
+        // জরুরিতা অনুযায়ী ব্যাজ / Badge by urgency
+        const urg = p.urgency || '';
+        const bc  = urg.includes('IMMINENT') ? 'b-red'
+                  : urg.includes('SOON')     ? 'b-yellow'
+                  : urg.includes('TODAY')    ? 'b-green'
+                  : 'b-cyan';
+        const label = urg.replace(/^[^\s]+\s/,''); // ইমোজি সরানো / Remove emoji
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td title="${p.mmsi}">${(p.ship_name||'').slice(0,13)}</td>
+            <td><span class="badge b-cyan">${(p.ship_type||'').slice(0,7)}</span></td>
+            <td><b>${p.final_eta_hours||'—'}</b></td>
+            <td>${p.distance_nm||'—'}</td>
+            <td><span class="badge ${bc}">${label}</span></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// ── অপ্টিমাইজেশন কার্ড আপডেট / Update optimization cards ──
+function updateOptCards(recs, summary) {
+    const wrap = document.getElementById('opt-wrap');
+    let html = '';
+
+    // ফ্লিট সারসংক্ষেপ / Fleet summary box
+    if (summary && summary.total_ships_optimized) {
+        html += `
+        <div class="fleet-box">
+            <span class="fl">Ships waiting</span>
+            <span class="fv">${summary.ships_with_waiting||0}</span>
+            <span class="fl">Total savings</span>
+            <span class="fv">$${(summary.total_cost_saved_usd||0).toLocaleString()}</span>
+            <span class="fl">Fuel saved</span>
+            <span class="fv">${summary.total_fuel_saved_tons||0} t</span>
+            <span class="fl">CO₂ avoided</span>
+            <span class="fv">${summary.total_co2_saved_tons||0} t</span>
+        </div>`;
+    }
+
+    // সুপারিশ কার্ড / Recommendation cards
+    if (recs && recs.length) {
+        recs.slice(0,6).forEach(r => {
+            if ((r.predicted_waiting_hours||0) < 0.5) return;
+            const ac = r.action === 'SLOW_DOWN' ? 'a-slow' : 'a-maintain';
+            const al = r.action === 'SLOW_DOWN' ? '🐌 SLOW DOWN' : '✅ MAINTAIN';
+            html += `
+            <div class="opt-card">
+                <div class="opt-top">
+                    <div class="opt-name">🚢 ${r.ship_name}</div>
+                    <div class="opt-action ${ac}">${al}</div>
+                </div>
+                <div class="opt-grid">
+                    <span>Speed</span>
+                    <span>${r.current_speed_knots} → <b>${r.recommended_speed_knots} kn</b></span>
+                    <span>Wait saved</span>
+                    <span><b>${r.predicted_waiting_hours}h</b></span>
+                    <span>Cost save</span>
+                    <span><b>$${(r.cost_saved_usd||0).toLocaleString()}</b></span>
+                    <span>CO₂ save</span>
+                    <span><b>${r.co2_saved_tons} t</b></span>
+                </div>
+            </div>`;
+        });
+    }
+
+    wrap.innerHTML = html ||
+        '<div style="color:var(--text-muted);font-size:11px;">All ships on optimal schedule ✅</div>';
+}
+
+
+// ══════════════════════════════════════════════
+// ছোট হেলপার / Small helpers
+// ══════════════════════════════════════════════
+
+// টেক্সট ও রঙ সেট / Set text and optional color
+function set(id, val, color) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = val;
+    if (color) el.style.color = color;
+}
+
+// আবহাওয়া পরিবর্তন / Weather change → trigger refresh
+async function setWeather(w) {
+    await fetch('/api/refresh', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ weather: w }),
+    });
+    loadAll();
+}
+
+// ম্যানুয়াল রিফ্রেশ বাটন / Manual refresh button
+async function manualRefresh() {
+    const btn = document.querySelector('.btn-refresh');
+    btn.textContent = '↻ …';
+    await fetch('/api/refresh', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ weather: document.getElementById('weather').value }),
+    });
+    await loadAll();
+    btn.textContent = '↻ REFRESH';
+}
+
+
+// ══════════════════════════════════════════════
+// পেজ লোড + অটো রিফ্রেশ / Page load + auto-refresh
+// ══════════════════════════════════════════════
+
+window.addEventListener('load', async () => {
+    await loadAll();
+
+    // লোডিং স্ক্রিন সরানো / Hide loading screen
+    setTimeout(() => document.getElementById('loader').classList.add('gone'), 1600);
+
+    // প্রতি ৬০ সেকেন্ডে স্বয়ংক্রিয় আপডেট / Auto-update every 60s
+    setInterval(loadAll, 60000);
+});
+</script>
+</body>
+</html>
