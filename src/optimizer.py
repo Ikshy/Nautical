@@ -41,7 +41,7 @@ class ArrivalOptimizer:
     
 
     def __init__(self):
-        logger.info("⚡ ArrivalOptimizer ready")
+        logger.info(" ArrivalOptimizer ready")
 
     
 
@@ -78,11 +78,7 @@ class ArrivalOptimizer:
             "co2_saved_tons":     round(co2_saved,    2),
         }
 
-    # ══════════════════════════════════════════
-    # গতি সামঞ্জস্য সুপারিশ / Speed Adjustment
-    # Slow Steaming কৌশল
-    # Uses "Slow Steaming" technique
-    # ══════════════════════════════════════════
+    
 
     def recommend_speed(self, distance_nm: float, current_speed: float,
                         waiting_hours: float, ship_type: str) -> dict:
@@ -107,7 +103,7 @@ class ArrivalOptimizer:
                 "fuel_saved_tons":     0.0,
                 "cost_saved_usd":      0.0,
                 "co2_saved_tons":      0.0,
-                "reason":              "✅ অপেক্ষা সহনীয় / Wait is acceptable",
+                "reason":              " অপেক্ষা সহনীয় / Wait is acceptable",
             }
 
         # বর্তমান ভ্রমণ সময় / Current travel time in hours
@@ -150,9 +146,7 @@ class ArrivalOptimizer:
             ),
         }
 
-    # ══════════════════════════════════════════
-    # সব জাহাজের সুপারিশ / All Ships Recommend
-    # ══════════════════════════════════════════
+    
 
     def generate_recommendations(self,
                                   simulation_df: pd.DataFrame,
@@ -162,7 +156,7 @@ class ArrivalOptimizer:
         Generate optimization recommendations for every ship.
         """
         if simulation_df.empty or predictions_df.empty:
-            logger.warning("⚠️  No data for optimization")
+            logger.warning("  No data for optimization")
             return pd.DataFrame()
 
         # দুটি DataFrame একসাথে মেশানো / Merge simulation + prediction data
@@ -235,12 +229,10 @@ class ArrivalOptimizer:
             })
 
         opt_df = pd.DataFrame(rows)
-        logger.info(f"✅ Generated {len(opt_df)} recommendations")
+        logger.info(f" Generated {len(opt_df)} recommendations")
         return opt_df
 
-    # ══════════════════════════════════════════
-    # ফ্লিট সারসংক্ষেপ / Fleet-wide Summary
-    # ══════════════════════════════════════════
+    
 
     def get_fleet_summary(self, recommendations_df: pd.DataFrame) -> dict:
         """
@@ -306,6 +298,6 @@ if __name__ == "__main__":
             "predicted_waiting_hours","cost_saved_usd","priority"]
     print(rec_df[cols].to_string(index=False))
 
-    print("\n📊 Fleet Summary:")
+    print("\n Fleet Summary:")
     for k, v in optimizer.get_fleet_summary(rec_df).items():
         print(f"   {k}: {v}")
