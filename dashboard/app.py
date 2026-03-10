@@ -96,7 +96,7 @@ def refresh_all_data(weather="Calm"):
         logger.info(f"✅ Cache updated. #{cache['update_count']}")
 
     except Exception as e:
-        logger.error(f"❌ Refresh error: {e}")
+        logger.error(f" Refresh error: {e}")
 
 
 
@@ -109,7 +109,7 @@ def background_updater():
             refresh_all_data()
             time.sleep(60)        # ৬০ সেকেন্ড বিরতি / 60s interval
         except Exception as e:
-            logger.error(f"❌ Background error: {e}")
+            logger.error(f" Background error: {e}")
             time.sleep(30)        # ত্রুটি হলে ৩০ সেকেন্ড / 30s on error
 
 
@@ -211,7 +211,7 @@ def api_refresh():
 
 
 # প্রথম ডেটা লোড / Initial data load before serving requests
-logger.info("🚀 Starting Nautical Dashboard...")
+logger.info(" Starting Nautical Dashboard...")
 refresh_all_data()
 
 # ব্যাকগ্রাউন্ড থ্রেড চালু / Start background refresh thread
@@ -220,7 +220,7 @@ bg_thread.start()
 
 if __name__ == "__main__":
     print("\n" + "=" * 50)
-    print("  🌊 NAUTICAL Dashboard")
+    print("   NAUTICAL Dashboard")
     print("  http://localhost:5000")
     print("=" * 50 + "\n")
     app.run(
